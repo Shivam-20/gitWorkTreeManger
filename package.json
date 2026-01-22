@@ -1,0 +1,238 @@
+{
+  "name": "git-worktree-manager",
+  "displayName": "Git Worktree Manager",
+  "description": "Enhanced git worktree management with intuitive UI and powerful commands",
+  "version": "1.0.0",
+  "publisher": "your-publisher-name",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "keywords": [
+    "git",
+    "worktree",
+    "git worktree",
+    "branch",
+    "source control"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gitWorktree.list",
+        "title": "List Worktrees",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.add",
+        "title": "Add New Worktree",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.addExistingBranch",
+        "title": "Add Worktree from Existing Branch",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.remove",
+        "title": "Remove Worktree",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.switch",
+        "title": "Switch to Worktree",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.openInNewWindow",
+        "title": "Open Worktree in New Window",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.prune",
+        "title": "Prune Worktrees",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.refresh",
+        "title": "Refresh Worktree List",
+        "category": "Git Worktree",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitWorktree.openTerminal",
+        "title": "Open Terminal in Worktree",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.switchBranch",
+        "title": "Switch Branch in Worktree",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.createBranch",
+        "title": "Create Branch in Worktree",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.pull",
+        "title": "Pull Changes in Worktree",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.push",
+        "title": "Push Changes from Worktree",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.copyPath",
+        "title": "Copy Worktree Path",
+        "category": "Git Worktree"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "git-worktree-explorer",
+          "title": "Git Worktrees",
+          "icon": "resources/worktree-icon.png"
+        }
+      ]
+    },
+    "views": {
+      "git-worktree-explorer": [
+        {
+          "id": "gitWorktreeView",
+          "name": "Worktrees",
+          "icon": "resources/worktree-icon.png",
+          "contextualTitle": "Git Worktrees"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "gitWorktree.refresh",
+          "when": "view == gitWorktreeView",
+          "group": "navigation"
+        },
+        {
+          "command": "gitWorktree.add",
+          "when": "view == gitWorktreeView"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "gitWorktree.switch",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "inline@1"
+        },
+        {
+          "command": "gitWorktree.openInNewWindow",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "1_open@1"
+        },
+        {
+          "command": "gitWorktree.openTerminal",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "1_open@2"
+        },
+        {
+          "command": "gitWorktree.copyPath",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "1_open@3"
+        },
+        {
+          "command": "gitWorktree.switchBranch",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "2_branch@1"
+        },
+        {
+          "command": "gitWorktree.createBranch",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "2_branch@2"
+        },
+        {
+          "command": "gitWorktree.pull",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "3_sync@1"
+        },
+        {
+          "command": "gitWorktree.push",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "3_sync@2"
+        },
+        {
+          "command": "gitWorktree.remove",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "4_manage@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "gitWorktree.refresh",
+          "when": "gitOpenRepositoryCount != 0"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Git Worktree Manager",
+      "properties": {
+        "gitWorktree.defaultLocation": {
+          "type": "string",
+          "default": "",
+          "description": "Default location for new worktrees (leave empty to use parent of main repository)"
+        },
+        "gitWorktree.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh worktree list when changes are detected"
+        },
+        "gitWorktree.showBranchNames": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show branch names in the worktree list"
+        },
+        "gitWorktree.confirmBeforeRemove": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for confirmation before removing a worktree"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.x",
+    "@types/vscode": "^1.75.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "typescript": "^5.1.6",
+    "@vscode/vsce": "^2.19.0"
+  },
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/git-worktree-manager"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/git-worktree-manager/issues"
+  },
+  "icon": "resources/icon.png",
+  "license": "MIT"
+}

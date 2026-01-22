@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f05032;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d93e24;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background with rounded corners -->
+  <rect x="8" y="8" width="240" height="240" rx="48" fill="url(#grad2)" filter="url(#shadow)" />
+  
+  <!-- Git worktree symbol -->
+  <g transform="translate(64, 64)" fill="white">
+    <!-- Main trunk -->
+    <rect x="56" y="16" width="16" height="96" rx="3" />
+    
+    <!-- Horizontal branch -->
+    <rect x="16" y="56" width="96" height="16" rx="3" />
+    
+    <!-- Branch end going up -->
+    <rect x="104" y="40" width="16" height="48" rx="3" />
+    
+    <!-- Branch end going down -->
+    <rect x="56" y="104" width="16" height="32" rx="3" />
+    
+    <!-- Small branch -->
+    <rect x="16" y="56" width="16" height="40" rx="3" />
+    
+    <!-- Circles at branch points -->
+    <circle cx="64" cy="24" r="12" />
+    <circle cx="24" cy="64" r="12" />
+    <circle cx="112" cy="64" r="12" />
+    <circle cx="64" cy="104" r="12" />
+    <circle cx="24" cy="88" r="8" />
+  </g>
+</svg>

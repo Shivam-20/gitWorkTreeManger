@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f05032;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d93e24;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Main branch icon -->
+  <circle cx="64" cy="64" r="56" fill="url(#grad1)" />
+  
+  <!-- Git branch symbol -->
+  <g transform="translate(32, 32)" fill="white">
+    <!-- Main vertical line -->
+    <rect x="28" y="8" width="8" height="48" rx="2" />
+    
+    <!-- Horizontal branch -->
+    <rect x="8" y="28" width="48" height="8" rx="2" />
+    
+    <!-- Branch end -->
+    <rect x="52" y="20" width="8" height="24" rx="2" />
+    
+    <!-- Circles at branch points -->
+    <circle cx="32" cy="12" r="6" />
+    <circle cx="12" cy="32" r="6" />
+    <circle cx="56" cy="32" r="6" />
+    <circle cx="32" cy="52" r="6" />
+  </g>
+</svg>
