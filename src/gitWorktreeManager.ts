@@ -166,13 +166,14 @@ export class GitWorktreeManager {
                 // Switch to existing local branch
                 await this.executeGitCommand(`git checkout "${branchName}"`, worktreePath);
             } else {
-                // Check if branch exists in remote
+                // Check if branch exists in remote with detected remote name
+                const remote = await this.getRemoteName(worktreePath);
                 const remoteBranches = await this.executeGitCommand('git branch -r --format="%(refname:short)"', worktreePath);
-                const remoteBranchExists = remoteBranches.split('\n').some(b => b.trim() === `origin/${branchName}`);
+                const remoteBranchExists = remoteBranches.split('\n').some(b => b.trim() === `${remote}/${branchName}`);
 
                 if (remoteBranchExists) {
                     // Create and checkout tracking branch
-                    await this.executeGitCommand(`git checkout -b "${branchName}" "origin/${branchName}"`, worktreePath);
+                    await this.executeGitCommand(`git checkout -b "${branchName}" "${remote}/${branchName}"`, worktreePath);
                 } else {
                     throw new Error(`Branch '${branchName}' not found locally or in remote`);
                 }
@@ -216,6 +217,18 @@ export class GitWorktreeManager {
             return output === 'HEAD' ? null : output;
         } catch (error: any) {
             throw new Error(`Failed to get current branch: ${error.message}`);
+        }
+    }
+
+    // NEW: Get remote name from git config
+    private async getRemoteName(worktreePath: string): Promise<string> {
+        try {
+            const output = await this.executeGitCommand('git remote', worktreePath);
+            const lines = output.split('\n').filter(l => l.trim());
+            return lines.length > 0 ? lines[0] : 'origin';
+        } catch (error: any) {
+            // If git config is not available, default to origin
+            return 'origin';
         }
     }
 

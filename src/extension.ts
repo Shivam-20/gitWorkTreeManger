@@ -27,6 +27,65 @@ export function activate(context: vscode.ExtensionContext) {
         return true;
     }
 
+    // Helper function to validate branch name
+    function validateBranchName(branchName: string): { valid: boolean; reason?: string } {
+        // Check for empty branch name
+        if (!branchName || branchName.trim() === '') {
+            return { valid: false, reason: 'Branch name cannot be empty' };
+        }
+        
+        // Cannot begin or end with dot
+        if (branchName.startsWith('.') || branchName.endsWith('.')) {
+            return { valid: false, reason: 'Branch name cannot begin or end with a dot' };
+        }
+        
+        // Cannot have consecutive dots
+        if (/\.\./.test(branchName)) {
+            return { valid: false, reason: 'Branch name cannot have consecutive dots' };
+        }
+        
+        // Cannot contain spaces or control characters
+        if (/[\s~^:?*[\]\\]/.test(branchName)) {
+            return { valid: false, reason: 'Branch name cannot contain spaces or special characters' };
+        }
+        
+        // Cannot be a reserved branch name
+        const reservedNames = ['master', 'main', 'HEAD', 'dev'];
+        if (reservedNames.includes(branchName)) {
+            return { valid: false, reason: 'Branch name is reserved' };
+        }
+        
+        // Maximum length (commonly 255 chars)
+        if (branchName.length > 255) {
+            return { valid: false, reason: 'Branch name too long (max 255 characters)' };
+        }
+        
+        return { valid: true };
+    }
+
+    // Helper function to validate worktree path
+    function validateWorktreePath(location: string, workspaceRoot: string): string {
+        // Check for directory traversal attempts
+        if (location.includes('..') || location.includes('~')) {
+            throw new Error('Invalid worktree path: Directory traversal not allowed');
+        }
+        
+        // Check for absolute paths to system directories
+        const systemDirs = ['/etc', '/usr', '/var', '/root'];
+        const isSystemDir = systemDirs.some(dir => location.startsWith(dir));
+        if (isSystemDir) {
+            throw new Error('Cannot create worktree in system directory');
+        }
+        
+        // Resolve relative paths
+        let resolvedPath = location;
+        if (!path.isAbsolute(location) && workspaceRoot) {
+            resolvedPath = path.resolve(workspaceRoot, location);
+        }
+        
+        return resolvedPath;
+    }
+
     // Helper function to get default location from config
     function getDefaultLocation(branchName: string): string {
         const config = vscode.workspace.getConfiguration('gitWorktree');
@@ -34,11 +93,11 @@ export function activate(context: vscode.ExtensionContext) {
         
         if (defaultLocation && defaultLocation.trim()) {
             // Use configured default location
-            return path.join(defaultLocation, branchName.replace(/\//g, '-'));
+            return path.join(defaultLocation, branchName.replace(/[\/\\]/g, '-'));
         }
         
         // Default to parent of main repository
-        return `../${branchName.replace(/\//g, '-')}`;
+        return `../${branchName.replace(/[\/\\]/g, '-')}`;
     }
 
     // Helper function to select location with file dialog option
@@ -122,6 +181,13 @@ export function activate(context: vscode.ExtensionContext) {
             });
 
             if (!branchName) {
+                return;
+            }
+
+            // Validate branch name
+            const validation = validateBranchName(branchName);
+            if (!validation.valid) {
+                vscode.window.showErrorMessage(`Invalid branch name: ${validation.reason}`);
                 return;
             }
 
@@ -368,7 +434,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             // Get current branch
             const currentBranch = targetWorktree.branch || 'detached';
-            
+
             // List all branches
             const branches = await gitManager.listBranches();
             const branchItems = branches.map(b => ({ label: b, description: b === currentBranch ? '(current)' : '' }));
@@ -442,6 +508,13 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
+            // Validate branch name
+            const validation = validateBranchName(branchName);
+            if (!validation.valid) {
+                vscode.window.showErrorMessage(`Invalid branch name: ${validation.reason}`);
+                return;
+            }
+
             try {
                 await vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
@@ -469,7 +542,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             try {
                 await vscode.window.withProgress({
-                    location: vscode.ProgressLocation.Notification,
+                    location: vscode.progressLocation.Notification,
                     title: `Pulling changes in ${worktree.branch || 'detached'}...`,
                     cancellable: false
                 }, async () => {
