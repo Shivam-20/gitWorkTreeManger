@@ -542,7 +542,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             try {
                 await vscode.window.withProgress({
-                    location: vscode.progressLocation.Notification,
+                    location: vscode.ProgressLocation.Notification,
                     title: `Pulling changes in ${worktree.branch || 'detached'}...`,
                     cancellable: false
                 }, async () => {
