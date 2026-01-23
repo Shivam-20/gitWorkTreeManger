@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { WorktreeProvider } from './worktreeProvider';
 import { GitWorktreeManager } from './gitWorktreeManager';
 
@@ -144,6 +145,40 @@ export function activate(context: vscode.ExtensionContext) {
         return location;
     }
 
+    // NEW: Helper to check if a path is suitable for a new worktree
+    async function checkWorktreePath(location: string, branchName: string): Promise<boolean> {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+        const resolvedPath = validateWorktreePath(location, workspaceRoot);
+        
+        if (fs.existsSync(resolvedPath)) {
+            const files = fs.readdirSync(resolvedPath);
+            if (files.length > 0) {
+                const worktrees = await gitManager.listWorktrees();
+                const isAlreadyWorktree = worktrees.some(wt => path.resolve(wt.path) === path.resolve(resolvedPath));
+                
+                if (isAlreadyWorktree) {
+                    const wt = worktrees.find(wt => path.resolve(wt.path) === path.resolve(resolvedPath));
+                    const action = await vscode.window.showInformationMessage(
+                        `A worktree already exists at this location (Branch: ${wt?.branch || 'unknown'}). Do you want to open it?`,
+                        'Open',
+                        'Cancel'
+                    );
+                    if (action === 'Open') {
+                        vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(resolvedPath), false);
+                    }
+                    return false;
+                }
+
+                await vscode.window.showWarningMessage(
+                    `The directory '${resolvedPath}' already exists and is not empty. Git requires an empty directory for a new worktree.`,
+                    { modal: true }
+                );
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Register commands
     context.subscriptions.push(
         vscode.commands.registerCommand('gitWorktree.list', async () => {
@@ -225,6 +260,11 @@ export function activate(context: vscode.ExtensionContext) {
                     createNew = false;
                 }
 
+                // Validate path
+                if (!(await checkWorktreePath(location, branchName))) {
+                    return;
+                }
+
                 await vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
                     title: createNew ? `Creating worktree for new branch ${branchName}...` : `Creating worktree for existing branch ${branchName}...`,
@@ -284,6 +324,11 @@ export function activate(context: vscode.ExtensionContext) {
             const location = await selectLocation(branch.label);
 
             if (!location) {
+                return;
+            }
+
+            // Validate path
+            if (!(await checkWorktreePath(location, branch.label))) {
                 return;
             }
 
