@@ -1,6 +1,6 @@
 {
-  "name": "git-worktree-manager",
-  "displayName": "Git Worktree Manager",
+  "name": "git-worktree-handler",
+  "displayName": "Git Worktree Handler",
   "description": "Enhanced git worktree management with intuitive UI and powerful commands",
   "version": "1.0.1",
   "publisher": "shivam-20",
@@ -182,7 +182,7 @@
       ]
     },
     "configuration": {
-      "title": "Git Worktree Manager",
+      "title": "Git Worktree Handler",
       "properties": {
         "gitWorktree.defaultLocation": {
           "type": "string",
