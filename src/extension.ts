@@ -50,9 +50,9 @@ export function activate(context: vscode.ExtensionContext) {
         }
         
         // Cannot be a reserved branch name
-        const reservedNames = ['master', 'main', 'HEAD', 'dev'];
+        const reservedNames = ['HEAD'];
         if (reservedNames.includes(branchName)) {
-            return { valid: false, reason: 'Branch name is reserved' };
+            return { valid: false, reason: 'Branch name "HEAD" is reserved' };
         }
         
         // Maximum length (commonly 255 chars)
@@ -198,12 +198,39 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             try {
+                // Check if branch already exists or is in use
+                const branches = await gitManager.listBranches();
+                const worktrees = await gitManager.listWorktrees();
+                
+                const isBranchInUse = worktrees.some(wt => wt.branch === branchName);
+                const doesBranchExist = branches.includes(branchName);
+
+                if (isBranchInUse) {
+                    const inUseWorktree = worktrees.find(wt => wt.branch === branchName);
+                    vscode.window.showErrorMessage(`Branch '${branchName}' is already checked out at: ${inUseWorktree?.path}`);
+                    return;
+                }
+
+                let createNew = true;
+                if (doesBranchExist) {
+                    const choice = await vscode.window.showInformationMessage(
+                        `Branch '${branchName}' already exists. Use it for the new worktree?`,
+                        { modal: true },
+                        'Yes',
+                        'No'
+                    );
+                    if (choice !== 'Yes') {
+                        return;
+                    }
+                    createNew = false;
+                }
+
                 await vscode.window.withProgress({
                     location: vscode.ProgressLocation.Notification,
-                    title: `Creating worktree for ${branchName}...`,
+                    title: createNew ? `Creating worktree for new branch ${branchName}...` : `Creating worktree for existing branch ${branchName}...`,
                     cancellable: false
                 }, async () => {
-                    await gitManager.addWorktree(location, branchName);
+                    await gitManager.addWorktree(location, branchName, createNew);
                 });
 
                 vscode.window.showInformationMessage(`Worktree created successfully: ${branchName}`);
@@ -235,9 +262,18 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             const branches = await gitManager.listBranches();
+            const worktrees = await gitManager.listWorktrees();
+            const usedBranches = worktrees.map((wt: any) => wt.branch).filter((b: any) => b !== null) as string[];
             
+            const availableBranches = branches.filter((b: string) => !usedBranches.includes(b));
+
+            if (availableBranches.length === 0) {
+                vscode.window.showInformationMessage('All branches are already checked out in worktrees.');
+                return;
+            }
+
             const branch = await vscode.window.showQuickPick(
-                branches.map(b => ({ label: b, description: '' })),
+                availableBranches.map(b => ({ label: b, description: '' })),
                 { placeHolder: 'Select a branch for worktree' }
             );
 
