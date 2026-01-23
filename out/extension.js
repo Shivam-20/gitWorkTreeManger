@@ -47,6 +47,7 @@ const timelineProvider_1 = require("./views/timelineProvider");
 const graphProvider_1 = require("./views/graphProvider");
 const quickActions_1 = require("./quickActions");
 const settingsSync_1 = require("./sync/settingsSync");
+const fileTransfer_1 = require("./fileTransfer");
 function activate(context) {
     console.log('Git Worktree Manager extension is now active');
     const gitManager = new gitWorktreeManager_1.GitWorktreeManager();
@@ -59,6 +60,7 @@ function activate(context) {
     const graphProvider = new graphProvider_1.GraphProvider(gitManager);
     const quickActions = new quickActions_1.QuickActions(templateManager, gitManager);
     const settingsSync = new settingsSync_1.SettingsSync();
+    const fileTransferManager = new fileTransfer_1.FileTransferManager(gitManager);
     // Status Bar Item
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.command = 'gitWorktree.list';
@@ -811,6 +813,82 @@ function activate(context) {
     // Dependency Graph
     context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.refreshGraph', () => {
         graphProvider.refresh();
+    }));
+    // File Transfer
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.moveFiles', async () => {
+        if (!(await validateGitRepository()))
+            return;
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot) {
+            vscode.window.showErrorMessage('No workspace folder open');
+            return;
+        }
+        // Get modified files in current worktree
+        const modifiedFiles = await fileTransferManager.getModifiedFiles(workspaceRoot);
+        if (modifiedFiles.length === 0) {
+            vscode.window.showInformationMessage('No modified files in current worktree');
+            return;
+        }
+        // Let user select which files to move
+        const selectedFiles = await vscode.window.showQuickPick(modifiedFiles.map(file => ({
+            label: file.displayLabel,
+            description: file.isStaged ? 'Staged' : 'Unstaged',
+            picked: false,
+            file
+        })), {
+            canPickMany: true,
+            placeHolder: 'Select files to move to another worktree'
+        });
+        if (!selectedFiles || selectedFiles.length === 0) {
+            return;
+        }
+        // Get all worktrees except current
+        const allWorktrees = await gitManager.listWorktrees();
+        const otherWorktrees = allWorktrees.filter(wt => path.resolve(wt.path) !== path.resolve(workspaceRoot));
+        if (otherWorktrees.length === 0) {
+            vscode.window.showWarningMessage('No other worktrees available');
+            return;
+        }
+        // Let user select target worktree
+        const targetWorktree = await vscode.window.showQuickPick(otherWorktrees.map(wt => ({
+            label: wt.branch || 'detached',
+            description: wt.path,
+            detail: wt.isMain ? '(Main worktree)' : '',
+            worktree: wt
+        })), {
+            placeHolder: 'Select target worktree'
+        });
+        if (!targetWorktree) {
+            return;
+        }
+        // Get configuration
+        const config = vscode.workspace.getConfiguration('gitWorktree');
+        const confirmOverwrite = config.get('fileTransfer.confirmOverwrite', true);
+        const autoStage = config.get('fileTransfer.autoStage', true);
+        // Transfer files
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Moving files to another worktree...',
+            cancellable: false
+        }, async (progress) => {
+            const filesToTransfer = selectedFiles.map(sf => sf.file);
+            const result = await fileTransferManager.transferFiles(workspaceRoot, targetWorktree.worktree.path, filesToTransfer, { confirmOverwrite, autoStage });
+            let message = `Transferred ${result.success} file(s)`;
+            if (result.failed > 0) {
+                message += `, ${result.failed} failed`;
+            }
+            if (result.skipped > 0) {
+                message += `, ${result.skipped} skipped`;
+            }
+            if (result.success > 0) {
+                vscode.window.showInformationMessage(message);
+                worktreeProvider.refresh();
+                healthProvider.refresh();
+            }
+            else {
+                vscode.window.showWarningMessage(message);
+            }
+        });
     }));
     // Set up health monitoring interval
     const healthConfig = vscode.workspace.getConfiguration('gitWorktree');

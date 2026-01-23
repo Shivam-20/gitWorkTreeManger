@@ -163,6 +163,12 @@
         "title": "Refresh Dependency Graph",
         "category": "Git Worktree",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "gitWorktree.moveFiles",
+        "title": "Move Files to Another Worktree",
+        "category": "Git Worktree",
+        "icon": "$(arrow-right)"
       }
     ],
     "viewsContainers": {
@@ -369,6 +375,16 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically sync settings when they change"
+        },
+        "gitWorktree.fileTransfer.confirmOverwrite": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for confirmation before overwriting existing files in target worktree"
+        },
+        "gitWorktree.fileTransfer.autoStage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically stage files in target worktree if they were staged in source"
         }
       }
     }

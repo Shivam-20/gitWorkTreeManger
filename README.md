@@ -11,6 +11,11 @@ A powerful VS Code extension that enhances git worktree management with an intui
   - Set up review environments for PRs
   - Launch prototype/experimental worktrees
   - Apply custom templates
+- **File Transfer Between Worktrees** ➡️: Easily move work-in-progress files:
+  - Transfer modified, staged, or untracked files
+  - Multi-select files to move
+  - Automatically preserves staging status
+  - Handles file overwrites gracefully
 - **Worktree Templates**: Save and reuse your favorite worktree configurations with custom location patterns and automatic dependency installation.
 - **Batch Operations**: Operate on multiple worktrees simultaneously:
   - Pull all worktrees at once
