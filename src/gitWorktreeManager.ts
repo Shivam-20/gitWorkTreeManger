@@ -89,6 +89,16 @@ export class GitWorktreeManager {
             }
         }
 
+        // Add the last worktree if it wasn't followed by an empty line
+        if (currentWorktree.path && currentWorktree.commit) {
+            worktrees.push({
+                path: currentWorktree.path,
+                commit: currentWorktree.commit,
+                branch: currentWorktree.branch || null,
+                isMain: worktrees.length === 0
+            });
+        }
+
         return worktrees;
     }
 
