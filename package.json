@@ -199,6 +199,16 @@
           "default": true,
           "description": "Show branch names in the worktree list"
         },
+        "gitWorktree.sortOrder": {
+          "type": "string",
+          "enum": [
+            "default",
+            "branch",
+            "path"
+          ],
+          "default": "default",
+          "description": "Sort order for worktrees in the view"
+        },
         "gitWorktree.confirmBeforeRemove": {
           "type": "boolean",
           "default": true,

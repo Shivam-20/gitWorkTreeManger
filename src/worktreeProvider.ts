@@ -27,6 +27,27 @@ export class WorktreeProvider implements vscode.TreeDataProvider<WorktreeItem> {
             }
 
             const worktrees = await this.gitManager.listWorktrees();
+            
+            // Sort worktrees based on configuration
+            const config = vscode.workspace.getConfiguration('gitWorktree');
+            const sortOrder = config.get<string>('sortOrder', 'default');
+
+            if (sortOrder !== 'default') {
+                worktrees.sort((a, b) => {
+                    if (a.isMain && !b.isMain) return -1;
+                    if (!a.isMain && b.isMain) return 1;
+
+                    if (sortOrder === 'branch') {
+                        const branchA = a.branch || '';
+                        const branchB = b.branch || '';
+                        return branchA.localeCompare(branchB);
+                    } else if (sortOrder === 'path') {
+                        return a.path.localeCompare(b.path);
+                    }
+                    return 0;
+                });
+            }
+
             return worktrees.map(wt => new WorktreeItem(wt, this.gitManager));
         }
 
