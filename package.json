@@ -1,8 +1,8 @@
 {
   "name": "git-worktree-handler",
-  "displayName": "tryToDEv",
+  "displayName": "git-worktree-handler",
   "description": "Enhanced git worktree management with intuitive UI and powerful commands",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "publisher": "tryToDEv",
   "engines": {
     "vscode": "^1.75.0"
