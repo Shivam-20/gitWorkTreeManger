@@ -2,8 +2,8 @@
   "name": "git-worktree-manager",
   "displayName": "Git Worktree Manager",
   "description": "Enhanced git worktree management with intuitive UI and powerful commands",
-  "version": "1.0.0",
-  "publisher": "your-publisher-name",
+  "version": "1.0.1",
+  "publisher": "shivam-20",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -228,10 +228,10 @@
   "dependencies": {},
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/git-worktree-manager"
+    "url": "https://github.com/Shivam-20/gitWorkTreeManger"
   },
   "bugs": {
-    "url": "https://github.com/your-username/git-worktree-manager/issues"
+    "url": "https://github.com/Shivam-20/gitWorkTreeManger/issues"
   },
   "icon": "resources/icon.png",
   "license": "MIT"
