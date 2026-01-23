@@ -29,7 +29,7 @@ export class GitWorktreeManager {
 
     private async executeGitCommand(command: string, cwd?: string): Promise<string> {
         const workingDirectory = cwd || this.workspaceRoot;
-        
+
         if (!workingDirectory) {
             throw new Error('No workspace folder open');
         }
@@ -117,7 +117,7 @@ export class GitWorktreeManager {
 
     async addWorktree(location: string, branch: string, createNew: boolean = true): Promise<void> {
         let resolvedPath = location;
-        
+
         // Resolve relative paths
         if (!path.isAbsolute(location) && this.workspaceRoot) {
             resolvedPath = path.resolve(this.workspaceRoot, location);
@@ -249,6 +249,95 @@ export class GitWorktreeManager {
             return output.trim() === '' ? 'clean' : 'dirty';
         } catch (error: any) {
             throw new Error(`Failed to get worktree status: ${error.message}`);
+        }
+    }
+
+    // NEW: Get the main worktree path
+    async getMainWorktreePath(): Promise<string | null> {
+        try {
+            const worktrees = await this.listWorktrees();
+            const mainWorktree = worktrees.find(wt => wt.isMain);
+            return mainWorktree ? mainWorktree.path : null;
+        } catch (error: any) {
+            throw new Error(`Failed to get main worktree path: ${error.message}`);
+        }
+    }
+
+    // NEW: Switch branch on main worktree with safety checks
+    async switchMainWorktreeBranch(branchName: string): Promise<{
+        success: boolean;
+        message: string;
+        previousBranch: string | null;
+        newBranch?: string;
+    }> {
+        try {
+            const mainWorktreePath = await this.getMainWorktreePath();
+            if (!mainWorktreePath) {
+                return { success: false, message: 'Main worktree not found', previousBranch: null };
+            }
+
+            const previousBranch = await this.getCurrentBranch(mainWorktreePath);
+            if (previousBranch === branchName) {
+                return { success: true, message: `Already on branch '${branchName}'`, previousBranch, newBranch: branchName };
+            }
+
+            const status = await this.getWorktreeStatus(mainWorktreePath);
+            if (status === 'dirty') {
+                return { success: false, message: 'Main worktree has uncommitted changes. Please commit or stash before switching.', previousBranch: previousBranch };
+            }
+
+            await this.switchBranchInWorktree(mainWorktreePath, branchName);
+
+            return {
+                success: true,
+                message: `Switched main worktree from '${previousBranch}' to '${branchName}'`,
+                previousBranch,
+                newBranch: branchName
+            };
+        } catch (error: any) {
+            return { success: false, message: `Failed to switch main worktree branch: ${error.message}`, previousBranch: null };
+        }
+    }
+
+    // NEW: Get sync status (ahead/behind counts)
+    async getSyncStatus(worktreePath: string): Promise<{ ahead: number; behind: number } | null> {
+        try {
+            const branch = await this.getCurrentBranch(worktreePath);
+            if (!branch) return null;
+
+            const remote = await this.getRemoteName(worktreePath);
+            // Fetch first to ensure remote tracking info is up to date? Maybe too slow.
+            // Let's just compare with tracking branch.
+            const trackingBranch = await this.executeGitCommand(`git rev-parse --abbrev-ref ${branch}@{u}`, worktreePath).catch(() => null);
+            if (!trackingBranch) return null;
+
+            const output = await this.executeGitCommand(`git rev-list --left-right --count ${branch}...${trackingBranch}`, worktreePath);
+            const [ahead, behind] = output.split('\t').map(n => parseInt(n, 10));
+            return { ahead, behind };
+        } catch (error) {
+            return null;
+        }
+    }
+
+    // NEW: Check if branch is merged into a target branch (default 'master' or 'main')
+    async isMerged(worktreePath: string, targetBranch: string = 'master'): Promise<boolean> {
+        try {
+            const branch = await this.getCurrentBranch(worktreePath);
+            if (!branch || branch === targetBranch) return false;
+
+            const output = await this.executeGitCommand(`git branch --merged ${targetBranch}`, worktreePath);
+            return output.split('\n').some(b => b.trim() === branch);
+        } catch (error) {
+            return false;
+        }
+    }
+
+    // NEW: Stash changes in a worktree
+    async stashChanges(worktreePath: string, message: string = 'Auto-stash'): Promise<void> {
+        try {
+            await this.executeGitCommand(`git stash push -m "${message}"`, worktreePath);
+        } catch (error: any) {
+            throw new Error(`Failed to stash changes: ${error.message}`);
         }
     }
 }

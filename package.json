@@ -94,6 +94,31 @@
         "command": "gitWorktree.copyPath",
         "title": "Copy Worktree Path",
         "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.switchMainBranch",
+        "title": "Switch Main Worktree branch",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.addNote",
+        "title": "Add/Edit Note",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.compare",
+        "title": "Compare with Current Worktree",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.multiSearch",
+        "title": "Search Across All Worktrees",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.cleanupMerged",
+        "title": "Cleanup Merged Worktrees",
+        "category": "Git Worktree"
       }
     ],
     "viewsContainers": {
@@ -172,6 +197,16 @@
           "command": "gitWorktree.remove",
           "when": "view == gitWorktreeView && viewItem == worktree",
           "group": "4_manage@1"
+        },
+        {
+          "command": "gitWorktree.addNote",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "4_manage@2"
+        },
+        {
+          "command": "gitWorktree.compare",
+          "when": "view == gitWorktreeView && viewItem == worktree",
+          "group": "1_open@4"
         }
       ],
       "commandPalette": [
@@ -213,6 +248,11 @@
           "type": "boolean",
           "default": true,
           "description": "Ask for confirmation before removing a worktree"
+        },
+        "gitWorktree.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the current worktree in the status bar"
         }
       }
     }

@@ -5,7 +5,17 @@ A powerful VS Code extension that enhances git worktree management with an intui
 ## Features
 
 - **Explorer View**: Visualize and manage all your worktrees in a dedicated sidebar view.
-- **Quick Switching**: Easily switch between worktrees using the explorer or Quick Pick (Ctrl+Shift+P).
+- **Status Bar Integration**: See your current worktree and branch at a glance in the status bar.
+- **Quick Switching**: Easily switch between worktrees using the explorer, Status Bar, or Quick Pick (Ctrl+Shift+P).
+- **Visual Indicators**:
+  - `*` indicator and orange icons for worktrees with uncommitted changes.
+  - `↑`/`↓` indicators for ahead/behind sync status.
+- **Worktree Notes**: Attach persistent notes to your worktrees to track tasks or PR numbers.
+- **Grouping**: Automatically see your most recently used worktrees in a "Recent" section.
+- **Advanced Tools**:
+  - **Multi-Search**: Search across all your worktrees simultaneously.
+  - **Cleanup**: Identify and bulk-remove worktrees whose branches have already been merged.
+  - **Main Branch Switching**: Safely switch your main worktree branch with auto-stashing.
 - **Branch Management**: Create, switch, and delete branches directly within worktrees.
 - **Smart Creation**:
   - Create new worktrees from new or existing branches.
@@ -15,7 +25,7 @@ A powerful VS Code extension that enhances git worktree management with an intui
   - Auto-stashing feature when switching main worktree branches.
   - Protected main worktree deletion.
   - Branch locking detection.
-- **Customizable**: Sort worktrees by branch name or path, and configure default locations.
+- **Customizable**: Sort worktrees by branch name or path, and configure status bar visibility.
 
 ## Usage
 
