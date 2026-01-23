@@ -1,5 +1,5 @@
 {
-  "name": "try-to-dev",
+  "name": "git-worktree-handler",
   "displayName": "tryToDEv",
   "description": "Enhanced git worktree management with intuitive UI and powerful commands",
   "version": "1.0.2",
