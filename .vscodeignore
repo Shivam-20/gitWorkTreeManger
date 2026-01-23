@@ -12,5 +12,5 @@ INSTALLATION_SUMMARY.md
 NEW_FEATURES.md
 QUICK_INSTALL.md
 install.sh
-git-worktree-manager-1.0.0.vsix
+*.vsix
 node_modules/**
