@@ -6,7 +6,30 @@ A powerful VS Code extension that enhances git worktree management with an intui
 
 - **Explorer View**: Visualize and manage all your worktrees in a dedicated sidebar view.
 - **Status Bar Integration**: See your current worktree and branch at a glance in the status bar.
-- **Quick Switching**: Easily switch between worktrees using the explorer, Status Bar, or Quick Pick (Ctrl+Shift+P).
+- **Quick Actions Panel** 🚀: One-click access to common workflows:
+  - Create hotfix branches instantly
+  - Set up review environments for PRs
+  - Launch prototype/experimental worktrees
+  - Apply custom templates
+- **Worktree Templates**: Save and reuse your favorite worktree configurations with custom location patterns and automatic dependency installation.
+- **Batch Operations**: Operate on multiple worktrees simultaneously:
+  - Pull all worktrees at once
+  - Push only dirty worktrees
+  - Install dependencies everywhere
+- **Health Monitor** 💊: Real-time health scores for all worktrees showing:
+  - Uncommitted changes age
+  - Branch sync status (ahead/behind)
+  - Merged branch detection
+  - Visual health indicators (green/yellow/red)
+- **Lifecycle Hooks**: Automate tasks with customizable hooks:
+  - `onCreate`: Run after worktree creation
+  - `onDelete`: Run before deletion
+  - `onSwitch`: Run when switching
+  - Support for variable substitution (`{path}`, `{branch}`)
+- **Settings Sync**: Keep your VS Code configuration consistent across all worktrees (settings.json, launch.json, tasks.json).
+- **Timeline View** 📅: Visual history of all worktree events (created, deleted, switched), grouped by time periods.
+- **Dependency Graph** 📊: Visualize shared dependencies across worktrees and see which projects are related.
+- **Quick Switching**: Easily switch between worktrees using the explorer, Status Bar, or Quick Pick.
 - **Visual Indicators**:
   - `*` indicator and orange icons for worktrees with uncommitted changes.
   - `↑`/`↓` indicators for ahead/behind sync status.
@@ -25,7 +48,7 @@ A powerful VS Code extension that enhances git worktree management with an intui
   - Auto-stashing feature when switching main worktree branches.
   - Protected main worktree deletion.
   - Branch locking detection.
-- **Customizable**: Sort worktrees by branch name or path, and configure status bar visibility.
+- **Customizable**: Sort worktrees by branch name or path, configure status bar visibility, set health check intervals.
 
 ## Usage
 
