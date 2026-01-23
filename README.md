@@ -1,4 +1,4 @@
-# Git Worktree Handler VS Code Extension
+# tryToDEv VS Code Extension
 
 A powerful VS Code extension that enhances git worktree management with an intuitive interface, making it easier to work with multiple branches simultaneously.
 

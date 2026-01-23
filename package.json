@@ -1,6 +1,6 @@
 {
-  "name": "git-worktree-handler",
-  "displayName": "Git Worktree Handler",
+  "name": "try-to-dev",
+  "displayName": "tryToDEv",
   "description": "Enhanced git worktree management with intuitive UI and powerful commands",
   "version": "1.0.2",
   "publisher": "shivam-20",
@@ -182,7 +182,7 @@
       ]
     },
     "configuration": {
-      "title": "Git Worktree Handler",
+      "title": "tryToDEv",
       "properties": {
         "gitWorktree.defaultLocation": {
           "type": "string",
