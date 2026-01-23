@@ -1,5 +1,6 @@
 {
   "name": "git-worktree-handler",
+  "name": "git-worktree-handler",
   "displayName": "git-worktree-handler",
   "description": "Enhanced git worktree management with intuitive UI and powerful commands",
   "version": "1.0.4",
@@ -94,6 +95,11 @@
         "command": "gitWorktree.copyPath",
         "title": "Copy Worktree Path",
         "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.switchMainBranch",
+        "title": "Switch Main Worktree Branch",
+        "category": "Git Worktree"
       }
     ],
     "viewsContainers": {
@@ -172,6 +178,11 @@
           "command": "gitWorktree.remove",
           "when": "view == gitWorktreeView && viewItem == worktree",
           "group": "4_manage@1"
+        },
+        {
+          "command": "gitWorktree.switchMainBranch",
+          "when": "view == gitWorktreeView && viewItem == worktree && worktree.isMain",
+          "group": "2_branch@0"
         }
       ],
       "commandPalette": [

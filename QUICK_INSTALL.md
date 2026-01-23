@@ -61,7 +61,7 @@ Press `Ctrl+Shift+P` → Type `Developer: Reload Window`
 ## Uninstall
 
 ```bash
-code --uninstall-extension your-publisher-name.git-worktree-manager
+code --uninstall-extension tryToDEv.git-worktree-manager
 ```
 
 ---

@@ -251,4 +251,146 @@ export class GitWorktreeManager {
             throw new Error(`Failed to get worktree status: ${error.message}`);
         }
     }
+
+    // NEW: Get the main worktree path
+    async getMainWorktreePath(): Promise<string | null> {
+        try {
+            const worktrees = await this.listWorktrees();
+            const mainWorktree = worktrees.find(wt => wt.isMain);
+            return mainWorktree ? mainWorktree.path : null;
+        } catch (error: any) {
+            throw new Error(`Failed to get main worktree path: ${error.message}`);
+        }
+    }
+
+    // NEW: Check if a branch is locked in another worktree
+    async isBranchLocked(branchName: string): Promise<boolean> {
+        try {
+            const lockingWorktree = await this.getBranchLockingWorktree(branchName);
+            return lockingWorktree !== null;
+        } catch (error: any) {
+            throw new Error(`Failed to check branch lock status: ${error.message}`);
+        }
+    }
+
+    // NEW: Get the worktree that has a branch locked
+    async getBranchLockingWorktree(branchName: string): Promise<Worktree | null> {
+        try {
+            const worktrees = await this.listWorktrees();
+            
+            for (const worktree of worktrees) {
+                if (worktree.branch === branchName) {
+                    return worktree;
+                }
+            }
+            
+            return null;
+        } catch (error: any) {
+            throw new Error(`Failed to get branch locking worktree: ${error.message}`);
+        }
+    }
+
+    // NEW: Switch branch on main worktree with safety checks
+    async switchMainWorktreeBranch(branchName: string): Promise<{
+        success: boolean;
+        message: string;
+        previousBranch: string | null;
+        newBranch?: string;
+    }> {
+        try {
+            // Get main worktree path
+            const mainWorktreePath = await this.getMainWorktreePath();
+            
+            if (!mainWorktreePath) {
+                return {
+                    success: false,
+                    message: 'Main worktree not found',
+                    previousBranch: null
+                };
+            }
+
+            // Get current branch
+            const previousBranch = await this.getCurrentBranch(mainWorktreePath);
+            
+            if (previousBranch === branchName) {
+                return {
+                    success: true,
+                    message: `Already on branch '${branchName}'`,
+                    previousBranch,
+                    newBranch: branchName
+                };
+            }
+
+            // Check if branch is locked in another worktree
+            const isLocked = await this.isBranchLocked(branchName);
+            
+            if (isLocked) {
+                const lockingWorktree = await this.getBranchLockingWorktree(branchName);
+                return {
+                    success: false,
+                    message: `Branch '${branchName}' is already checked out at ${lockingWorktree?.path}`,
+                    previousBranch
+                };
+            }
+
+            // Check for uncommitted changes
+            const status = await this.getWorktreeStatus(mainWorktreePath);
+            
+            if (status === 'dirty') {
+                return {
+                    success: false,
+                    message: 'Main worktree has uncommitted changes. Please commit or stash before switching.',
+                    previousBranch: null
+                };
+            }
+
+            // Check if branch exists locally
+            const branches = await this.executeGitCommand('git branch --format="%(refname:short)"', mainWorktreePath);
+            const branchExists = branches.split('\n').some(b => b.trim() === branchName);
+
+            if (!branchExists) {
+                // Check if branch exists in remote
+                const remote = await this.getRemoteName(mainWorktreePath);
+                const remoteBranches = await this.executeGitCommand('git branch -r --format="%(refname:short)"', mainWorktreePath);
+                const remoteBranchExists = remoteBranches.split('\n').some(b => b.trim() === `${remote}/${branchName}`);
+
+                if (remoteBranchExists) {
+                    // Create and checkout tracking branch
+                    await this.executeGitCommand(`git checkout -b "${branchName}" "${remote}/${branchName}"`, mainWorktreePath);
+                } else {
+                    return {
+                        success: false,
+                        message: `Branch '${branchName}' not found locally or in remote`,
+                        previousBranch: null
+                    };
+                }
+            } else {
+                // Switch to existing local branch
+                await this.executeGitCommand(`git checkout "${branchName}"`, mainWorktreePath);
+            }
+
+            return {
+                success: true,
+                message: `Switched main worktree from '${previousBranch}' to '${branchName}'`,
+                previousBranch,
+                newBranch: branchName
+            };
+
+        } catch (error: any) {
+            return {
+                success: false,
+                message: `Failed to switch main worktree branch: ${error.message}`,
+                previousBranch: null
+            };
+        }
+    }
+
+    // NEW: Stash changes in a worktree
+    async stashChanges(worktreePath: string, message: string = 'Auto-stash'): Promise<void> {
+        try {
+            await this.executeGitCommand(`git stash push -m "${message}"`, worktreePath);
+        } catch (error: any) {
+            throw new Error(`Failed to stash changes: ${error.message}`);
+        }
+    }
 }

@@ -265,7 +265,7 @@ print_completion() {
     echo "  3. Open a git repository to see your worktrees"
     echo ""
     print_message "$YELLOW" "To uninstall the extension:"
-    echo "  code --uninstall-extension your-publisher-name.git-worktree-manager"
+    echo "  code --uninstall-extension tryToDEv.git-worktree-manager"
     echo ""
     print_message "$BLUE" "For more information, see INSTALLATION_GUIDE.md"
 }

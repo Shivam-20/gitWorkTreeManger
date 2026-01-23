@@ -8,7 +8,7 @@ This document summarizes the installation process and fixes applied to the Git W
 
 **Status:** ✅ Successfully Installed
 
-**Extension Name:** `your-publisher-name.git-worktree-manager`
+**Extension Name:** `tryToDEv.git-worktree-manager`
 
 **VSIX Package:** `git-worktree-manager-1.0.0.vsix` (15.94 KB)
 
@@ -48,7 +48,7 @@ This document summarizes the installation process and fixes applied to the Git W
 
 ### 6. Extension Installation
 - ✅ Installed in VS Code using `code --install-extension`
-- ✅ Extension ID: `your-publisher-name.git-worktree-manager`
+- ✅ Extension ID: `tryToDEv.git-worktree-manager`
 
 ---
 
@@ -138,7 +138,7 @@ git-worktree-manager-1.0.0.vsix (15.94 KB)
 ### Extension Status
 ```bash
 $ code --list-extensions | grep -i worktree
-your-publisher-name.git-worktree-manager
+tryToDEv.git-worktree-manager
 ```
 
 ### Next Steps for Users
@@ -225,7 +225,7 @@ For detailed troubleshooting, see [`INSTALLATION_GUIDE.md`](INSTALLATION_GUIDE.m
 To uninstall the extension:
 
 ```bash
-code --uninstall-extension your-publisher-name.git-worktree-manager
+code --uninstall-extension tryToDEv.git-worktree-manager
 ```
 
 ---

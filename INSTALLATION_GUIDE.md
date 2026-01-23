@@ -459,7 +459,7 @@ npx @vscode/vsce package
 code --install-extension git-worktree-manager-1.0.0.vsix
 
 # Uninstall extension
-code --uninstall-extension your-publisher-name.git-worktree-manager
+code --uninstall-extension tryToDEv.git-worktree-manager
 
 # Watch mode for development
 npm run watch

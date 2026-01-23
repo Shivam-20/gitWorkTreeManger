@@ -627,6 +627,110 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // NEW: Switch main worktree branch with safety checks
+    context.subscriptions.push(
+        vscode.commands.registerCommand('gitWorktree.switchMainBranch', async () => {
+            if (!(await validateGitRepository())) {
+                return;
+            }
+
+            try {
+                // Get main worktree path
+                const mainWorktreePath = await gitManager.getMainWorktreePath();
+                
+                if (!mainWorktreePath) {
+                    vscode.window.showErrorMessage('Main worktree not found');
+                    return;
+                }
+
+                // Get current branch of main worktree
+                const currentBranch = await gitManager.getCurrentBranch(mainWorktreePath);
+                
+                if (!currentBranch) {
+                    vscode.window.showWarningMessage('Main worktree is in detached HEAD state. Please checkout a branch first.');
+                    return;
+                }
+
+                // List all branches
+                const branches = await gitManager.listBranches();
+                
+                // Get worktrees once to optimize branch locking check
+                const worktrees = await gitManager.listWorktrees();
+                const lockedBranches = new Set(worktrees.map(wt => wt.branch).filter((b): b is string => b !== null && b !== currentBranch));
+                
+                // Filter out branches that are locked in other worktrees
+                const availableBranches: string[] = branches.filter(branch => !lockedBranches.has(branch));
+
+                // Create branch items with status indicators
+                const branchItems = availableBranches.map(b => ({
+                    label: b,
+                    description: b === currentBranch ? '(current)' : ''
+                }));
+
+                const selectedBranch = await vscode.window.showQuickPick(
+                    branchItems,
+                    { placeHolder: `Select branch to switch to (current: ${currentBranch})` }
+                );
+
+                if (!selectedBranch) {
+                    return;
+                }
+
+                if (selectedBranch.label === currentBranch) {
+                    vscode.window.showInformationMessage('Already on this branch');
+                    return;
+                }
+
+                // Check for uncommitted changes before switching
+                const status = await gitManager.getWorktreeStatus(mainWorktreePath);
+                
+                if (status === 'dirty') {
+                    const action = await vscode.window.showWarningMessage(
+                        'Main worktree has uncommitted changes. What would you like to do?',
+                        { modal: true },
+                        'Stash Changes',
+                        'Commit Changes',
+                        'Cancel'
+                    );
+
+                    if (action === 'Stash Changes') {
+                        try {
+                            await gitManager.stashChanges(mainWorktreePath, 'Auto-stash before branch switch');
+                            vscode.window.showInformationMessage('Changes stashed successfully');
+                        } catch (error: any) {
+                            vscode.window.showErrorMessage(`Failed to stash changes: ${error}`);
+                            return;
+                        }
+                    } else if (action === 'Commit Changes') {
+                        vscode.window.showInformationMessage('Please commit your changes manually, then try again.');
+                        return;
+                    } else {
+                        return;
+                    }
+                }
+
+                // Perform branch switch
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: `Switching main worktree from ${currentBranch} to ${selectedBranch.label}...`,
+                    cancellable: false
+                }, async () => {
+                    const result = await gitManager.switchMainWorktreeBranch(selectedBranch.label);
+                    
+                    if (result.success) {
+                        vscode.window.showInformationMessage(result.message);
+                        worktreeProvider.refresh();
+                    } else {
+                        vscode.window.showErrorMessage(result.message);
+                    }
+                });
+
+            } catch (error: any) {
+                vscode.window.showErrorMessage(`Failed to switch main worktree branch: ${error}`);
+            }
+        })
+    );
+
     context.subscriptions.push(
         vscode.commands.registerCommand('gitWorktree.prune', async () => {
             if (!(await validateGitRepository())) {
