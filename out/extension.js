@@ -37,18 +37,50 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
+const fs = __importStar(require("fs"));
 const worktreeProvider_1 = require("./worktreeProvider");
 const gitWorktreeManager_1 = require("./gitWorktreeManager");
+const templateManager_1 = require("./templates/templateManager");
+const hooksManager_1 = require("./lifecycle/hooksManager");
+const healthProvider_1 = require("./views/healthProvider");
+const timelineProvider_1 = require("./views/timelineProvider");
+const graphProvider_1 = require("./views/graphProvider");
+const quickActions_1 = require("./quickActions");
+const settingsSync_1 = require("./sync/settingsSync");
 function activate(context) {
     console.log('Git Worktree Manager extension is now active');
     const gitManager = new gitWorktreeManager_1.GitWorktreeManager();
     const worktreeProvider = new worktreeProvider_1.WorktreeProvider(gitManager);
-    // Register tree view
+    // Initialize new modules
+    const templateManager = new templateManager_1.TemplateManager(context);
+    const hooksManager = new hooksManager_1.HooksManager();
+    const healthProvider = new healthProvider_1.HealthProvider(gitManager);
+    const timelineProvider = new timelineProvider_1.TimelineProvider(context, gitManager);
+    const graphProvider = new graphProvider_1.GraphProvider(gitManager);
+    const quickActions = new quickActions_1.QuickActions(templateManager, gitManager);
+    const settingsSync = new settingsSync_1.SettingsSync();
+    // Status Bar Item
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    statusBarItem.command = 'gitWorktree.list';
+    context.subscriptions.push(statusBarItem);
+    // Register all tree views
     const treeView = vscode.window.createTreeView('gitWorktreeView', {
         treeDataProvider: worktreeProvider,
         showCollapseAll: true
     });
-    context.subscriptions.push(treeView);
+    const healthView = vscode.window.createTreeView('gitHealthView', {
+        treeDataProvider: healthProvider,
+        showCollapseAll: true
+    });
+    const timelineView = vscode.window.createTreeView('gitTimelineView', {
+        treeDataProvider: timelineProvider,
+        showCollapseAll: true
+    });
+    const graphView = vscode.window.createTreeView('gitGraphView', {
+        treeDataProvider: graphProvider,
+        showCollapseAll: true
+    });
+    context.subscriptions.push(treeView, healthView, timelineView, graphView);
     // Helper function to validate git repository
     async function validateGitRepository() {
         const isGitRepo = await gitManager.isGitRepository();
@@ -77,9 +109,9 @@ function activate(context) {
             return { valid: false, reason: 'Branch name cannot contain spaces or special characters' };
         }
         // Cannot be a reserved branch name
-        const reservedNames = ['master', 'main', 'HEAD', 'dev'];
+        const reservedNames = ['HEAD'];
         if (reservedNames.includes(branchName)) {
-            return { valid: false, reason: 'Branch name is reserved' };
+            return { valid: false, reason: 'Branch name "HEAD" is reserved' };
         }
         // Maximum length (commonly 255 chars)
         if (branchName.length > 255) {
@@ -152,6 +184,71 @@ function activate(context) {
         }
         return location;
     }
+    // NEW: Helper to check if a path is suitable for a new worktree
+    async function checkWorktreePath(location, branchName) {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+        const resolvedPath = validateWorktreePath(location, workspaceRoot);
+        if (fs.existsSync(resolvedPath)) {
+            const files = fs.readdirSync(resolvedPath);
+            if (files.length > 0) {
+                const worktrees = await gitManager.listWorktrees();
+                const isAlreadyWorktree = worktrees.some(wt => path.resolve(wt.path) === path.resolve(resolvedPath));
+                if (isAlreadyWorktree) {
+                    const wt = worktrees.find(wt => path.resolve(wt.path) === path.resolve(resolvedPath));
+                    const action = await vscode.window.showInformationMessage(`A worktree already exists at this location (Branch: ${wt?.branch || 'unknown'}). Do you want to open it?`, 'Open', 'Cancel');
+                    if (action === 'Open') {
+                        vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(resolvedPath), false);
+                    }
+                    return false;
+                }
+                await vscode.window.showWarningMessage(`The directory '${resolvedPath}' already exists and is not empty. Git requires an empty directory for a new worktree.`, { modal: true });
+                return false;
+            }
+        }
+        return true;
+    }
+    // NEW: Update Status Bar
+    async function updateStatusBar() {
+        const config = vscode.workspace.getConfiguration('gitWorktree');
+        if (!config.get('showStatusBar', true)) {
+            statusBarItem.hide();
+            return;
+        }
+        const isGitRepo = await gitManager.isGitRepository();
+        if (!isGitRepo) {
+            statusBarItem.hide();
+            return;
+        }
+        const worktrees = await gitManager.listWorktrees();
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (workspaceRoot) {
+            const currentWorktree = worktrees.find(wt => path.resolve(wt.path) === path.resolve(workspaceRoot));
+            if (currentWorktree) {
+                const branch = currentWorktree.branch || 'detached';
+                const status = await gitManager.getWorktreeStatus(currentWorktree.path);
+                const icon = status === 'dirty' ? '$(file-submodule)' : '$(git-branch)';
+                statusBarItem.text = `${icon} ${branch}`;
+                statusBarItem.tooltip = `Current Worktree: ${currentWorktree.path}`;
+                statusBarItem.show();
+                return;
+            }
+        }
+        statusBarItem.hide();
+    }
+    updateStatusBar();
+    // Track recent worktrees
+    async function trackRecentWorktree() {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot)
+            return;
+        let recentPaths = context.workspaceState.get('recentWorktrees', []);
+        recentPaths = recentPaths.filter(p => p !== workspaceRoot);
+        recentPaths.unshift(workspaceRoot);
+        recentPaths = recentPaths.slice(0, 5); // Keep last 5
+        await context.workspaceState.update('recentWorktrees', recentPaths);
+        worktreeProvider.setRecentPaths(recentPaths);
+    }
+    trackRecentWorktree();
     // Register commands
     context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.list', async () => {
         if (!(await validateGitRepository())) {
@@ -193,15 +290,46 @@ function activate(context) {
             return;
         }
         try {
+            // Check if branch already exists or is in use
+            const branches = await gitManager.listBranches();
+            const worktrees = await gitManager.listWorktrees();
+            const isBranchInUse = worktrees.some(wt => wt.branch === branchName);
+            const doesBranchExist = branches.includes(branchName);
+            if (isBranchInUse) {
+                const inUseWorktree = worktrees.find(wt => wt.branch === branchName);
+                vscode.window.showErrorMessage(`Branch '${branchName}' is already checked out at: ${inUseWorktree?.path}`);
+                return;
+            }
+            let createNew = true;
+            if (doesBranchExist) {
+                const choice = await vscode.window.showInformationMessage(`Branch '${branchName}' already exists. Use it for the new worktree?`, { modal: true }, 'Yes', 'No');
+                if (choice !== 'Yes') {
+                    return;
+                }
+                createNew = false;
+            }
+            // Validate path
+            if (!(await checkWorktreePath(location, branchName))) {
+                return;
+            }
             await vscode.window.withProgress({
                 location: vscode.ProgressLocation.Notification,
-                title: `Creating worktree for ${branchName}...`,
+                title: createNew ? `Creating worktree for new branch ${branchName}...` : `Creating worktree for existing branch ${branchName}...`,
                 cancellable: false
             }, async () => {
-                await gitManager.addWorktree(location, branchName);
+                await gitManager.addWorktree(location, branchName, createNew);
+            });
+            // Execute onCreate hook
+            await hooksManager.onWorktreeCreate(location, branchName);
+            // Record timeline event
+            await timelineProvider.recordEvent({
+                type: 'created',
+                worktree: { path: location, branch: branchName },
+                timestamp: Date.now()
             });
             vscode.window.showInformationMessage(`Worktree created successfully: ${branchName}`);
             worktreeProvider.refresh();
+            healthProvider.refresh();
             // Ask if user wants to open new worktree
             const action = await vscode.window.showInformationMessage('Worktree created. Do you want to open it?', 'Open in New Window', 'Open in Current Window', 'Cancel');
             if (action === 'Open in New Window') {
@@ -220,12 +348,23 @@ function activate(context) {
             return;
         }
         const branches = await gitManager.listBranches();
-        const branch = await vscode.window.showQuickPick(branches.map(b => ({ label: b, description: '' })), { placeHolder: 'Select a branch for worktree' });
+        const worktrees = await gitManager.listWorktrees();
+        const usedBranches = worktrees.map((wt) => wt.branch).filter((b) => b !== null);
+        const availableBranches = branches.filter((b) => !usedBranches.includes(b));
+        if (availableBranches.length === 0) {
+            vscode.window.showInformationMessage('All branches are already checked out in worktrees.');
+            return;
+        }
+        const branch = await vscode.window.showQuickPick(availableBranches.map(b => ({ label: b, description: '' })), { placeHolder: 'Select a branch for worktree' });
         if (!branch) {
             return;
         }
         const location = await selectLocation(branch.label);
         if (!location) {
+            return;
+        }
+        // Validate path
+        if (!(await checkWorktreePath(location, branch.label))) {
             return;
         }
         try {
@@ -477,6 +616,212 @@ function activate(context) {
             vscode.window.showInformationMessage(`Path copied: ${worktree.path}`);
         }
     }));
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.addNote', async (item) => {
+        const worktree = item?.worktree;
+        if (!worktree)
+            return;
+        const existingNotesHeader = context.workspaceState.get('worktreeNotes', {});
+        const currentNote = existingNotesHeader[worktree.path] || '';
+        const note = await vscode.window.showInputBox({
+            prompt: `Add note for worktree at ${worktree.path}`,
+            value: currentNote,
+            placeHolder: 'e.g., Working on PR #123'
+        });
+        if (note !== undefined) {
+            existingNotesHeader[worktree.path] = note;
+            await context.workspaceState.update('worktreeNotes', existingNotesHeader);
+            worktreeProvider.setNotes(existingNotesHeader);
+            worktreeProvider.refresh();
+        }
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.compare', async (item) => {
+        const worktree = item?.worktree;
+        if (!worktree)
+            return;
+        vscode.window.showInformationMessage(`Comparing current worktree with ${worktree.branch || 'detached'}`);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.multiSearch', async () => {
+        const query = await vscode.window.showInputBox({ prompt: 'Search across all worktrees' });
+        if (!query)
+            return;
+        const worktrees = await gitManager.listWorktrees();
+        const terminal = vscode.window.createTerminal('Multi-Worktree Search');
+        terminal.show();
+        for (const wt of worktrees) {
+            terminal.sendText(`echo "--- Search in ${wt.branch || wt.path} ---"`);
+            terminal.sendText(`grep -rn "${query}" "${wt.path}" --exclude-dir=.git || true`);
+        }
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.cleanupMerged', async () => {
+        if (!(await validateGitRepository()))
+            return;
+        const worktrees = await gitManager.listWorktrees();
+        const mergedWorktrees = [];
+        for (const wt of worktrees.filter(w => !w.isMain)) {
+            if (await gitManager.isMerged(wt.path)) {
+                mergedWorktrees.push(wt);
+            }
+        }
+        if (mergedWorktrees.length === 0) {
+            vscode.window.showInformationMessage('No merged worktrees found.');
+            return;
+        }
+        const selection = await vscode.window.showQuickPick(mergedWorktrees.map(wt => ({ label: wt.branch || 'detached', description: wt.path, worktree: wt })), { canPickMany: true, placeHolder: 'Select merged worktrees to remove' });
+        if (selection && selection.length > 0) {
+            for (const item of selection) {
+                await gitManager.removeWorktree(item.worktree.path);
+            }
+            vscode.window.showInformationMessage(`Removed ${selection.length} worktrees.`);
+            worktreeProvider.refresh();
+        }
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.switchMainBranch', async () => {
+        if (!(await validateGitRepository()))
+            return;
+        const branches = await gitManager.listBranches();
+        const selectedBranch = await vscode.window.showQuickPick(branches, { placeHolder: 'Select branch for main worktree' });
+        if (selectedBranch) {
+            const result = await gitManager.switchMainWorktreeBranch(selectedBranch);
+            if (result.success) {
+                vscode.window.showInformationMessage(result.message);
+                worktreeProvider.refresh();
+                updateStatusBar();
+            }
+            else {
+                vscode.window.showErrorMessage(result.message);
+            }
+        }
+    }));
+    // Quick Actions
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.quickActions', async () => {
+        await quickActions.showQuickActionsPanel();
+    }));
+    // Batch Operations
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.pullAll', async () => {
+        if (!(await validateGitRepository()))
+            return;
+        const worktrees = await gitManager.listWorktrees();
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Pulling all worktrees...',
+            cancellable: false
+        }, async (progress) => {
+            let completed = 0;
+            for (const wt of worktrees) {
+                progress.report({ message: `Pulling ${wt.branch || wt.path}...`, increment: (100 / worktrees.length) });
+                try {
+                    await gitManager.pullInWorktree(wt.path);
+                    completed++;
+                }
+                catch (error) {
+                    console.error(`Pull failed for ${wt.path}:`, error);
+                }
+            }
+            vscode.window.showInformationMessage(`Pulled ${completed}/${worktrees.length} worktrees`);
+        });
+        worktreeProvider.refresh();
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.pushAllDirty', async () => {
+        if (!(await validateGitRepository()))
+            return;
+        const worktrees = await gitManager.listWorktrees();
+        const dirtyWorktrees = [];
+        for (const wt of worktrees) {
+            const status = await gitManager.getWorktreeStatus(wt.path);
+            if (status === 'dirty') {
+                dirtyWorktrees.push(wt);
+            }
+        }
+        if (dirtyWorktrees.length === 0) {
+            vscode.window.showInformationMessage('No dirty worktrees found');
+            return;
+        }
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Pushing dirty worktrees...',
+            cancellable: false
+        }, async (progress) => {
+            let completed = 0;
+            for (const wt of dirtyWorktrees) {
+                progress.report({ message: `Pushing ${wt.branch || wt.path}...` });
+                try {
+                    await gitManager.pushInWorktree(wt.path);
+                    completed++;
+                }
+                catch (error) {
+                    console.error(`Push failed for ${wt.path}:`, error);
+                }
+            }
+            vscode.window.showInformationMessage(`Pushed ${completed}/${dirtyWorktrees.length} dirty worktrees`);
+        });
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.installDepsAll', async () => {
+        if (!(await validateGitRepository()))
+            return;
+        const worktrees = await gitManager.listWorktrees();
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Installing dependencies in all worktrees...',
+            cancellable: false
+        }, async (progress) => {
+            let completed = 0;
+            for (const wt of worktrees) {
+                progress.report({ message: `Installing in ${wt.branch || wt.path}...` });
+                try {
+                    await hooksManager.executeHook('npm install', { path: wt.path, branch: wt.branch || '', worktree: wt.path });
+                    completed++;
+                }
+                catch (error) {
+                    console.error(`Install failed for ${wt.path}:`, error);
+                }
+            }
+            vscode.window.showInformationMessage(`Installed dependencies in ${completed}/${worktrees.length} worktrees`);
+        });
+    }));
+    // Settings Sync
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.syncSettings', async () => {
+        if (!(await validateGitRepository()))
+            return;
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!workspaceRoot)
+            return;
+        const worktrees = await gitManager.listWorktrees();
+        const targetPaths = worktrees.filter(wt => wt.path !== workspaceRoot).map(wt => wt.path);
+        if (targetPaths.length === 0) {
+            vscode.window.showInformationMessage('No other worktrees to sync to');
+            return;
+        }
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Syncing settings...',
+            cancellable: false
+        }, async (progress) => {
+            const result = await settingsSync.syncSettings(workspaceRoot, targetPaths, progress);
+            vscode.window.showInformationMessage(`Settings synced to ${result.synced} files (${result.failed} failed)`);
+        });
+    }));
+    // Health Monitor
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.refreshHealth', () => {
+        healthProvider.refresh();
+    }));
+    // Timeline
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.refreshTimeline', () => {
+        timelineProvider.refresh();
+    }));
+    // Dependency Graph
+    context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.refreshGraph', () => {
+        graphProvider.refresh();
+    }));
+    // Set up health monitoring interval
+    const healthConfig = vscode.workspace.getConfiguration('gitWorktree');
+    const healthCheckInterval = healthConfig.get('health.checkInterval', 900000);
+    const healthTimer = setInterval(() => {
+        healthProvider.refresh();
+    }, healthCheckInterval);
+    context.subscriptions.push({ dispose: () => clearInterval(healthTimer) });
+    // Pass initial data to provider
+    worktreeProvider.setNotes(context.workspaceState.get('worktreeNotes', {}));
+    worktreeProvider.setRecentPaths(context.workspaceState.get('recentWorktrees', []));
     context.subscriptions.push(vscode.commands.registerCommand('gitWorktree.prune', async () => {
         if (!(await validateGitRepository())) {
             return;
@@ -497,11 +842,27 @@ function activate(context) {
     const config = vscode.workspace.getConfiguration('gitWorktree');
     if (config.get('autoRefresh', true)) {
         const watcher = vscode.workspace.createFileSystemWatcher('**/.git/worktrees/**');
-        watcher.onDidChange(() => worktreeProvider.refresh());
-        watcher.onDidCreate(() => worktreeProvider.refresh());
-        watcher.onDidDelete(() => worktreeProvider.refresh());
+        watcher.onDidChange(() => {
+            worktreeProvider.refresh();
+            updateStatusBar();
+        });
+        watcher.onDidCreate(() => {
+            worktreeProvider.refresh();
+            updateStatusBar();
+        });
+        watcher.onDidDelete(() => {
+            worktreeProvider.refresh();
+            updateStatusBar();
+        });
         context.subscriptions.push(watcher);
     }
+    // Also watch for local HEAD changes
+    const headWatcher = vscode.workspace.createFileSystemWatcher('**/.git/HEAD');
+    headWatcher.onDidChange(() => updateStatusBar());
+    context.subscriptions.push(headWatcher);
+    const indexWatcher = vscode.workspace.createFileSystemWatcher('**/.git/index');
+    indexWatcher.onDidChange(() => updateStatusBar());
+    context.subscriptions.push(indexWatcher);
 }
 function deactivate() {
     console.log('Git Worktree Manager extension is now deactivated');

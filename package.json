@@ -119,6 +119,50 @@
         "command": "gitWorktree.cleanupMerged",
         "title": "Cleanup Merged Worktrees",
         "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.quickActions",
+        "title": "Quick Actions",
+        "category": "Git Worktree",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "gitWorktree.pullAll",
+        "title": "Pull All Worktrees",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.pushAllDirty",
+        "title": "Push All Dirty Worktrees",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.installDepsAll",
+        "title": "Install Dependencies in All Worktrees",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.syncSettings",
+        "title": "Sync Settings to All Worktrees",
+        "category": "Git Worktree"
+      },
+      {
+        "command": "gitWorktree.refreshHealth",
+        "title": "Refresh Health Monitor",
+        "category": "Git Worktree",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitWorktree.refreshTimeline",
+        "title": "Refresh Timeline",
+        "category": "Git Worktree",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitWorktree.refreshGraph",
+        "title": "Refresh Dependency Graph",
+        "category": "Git Worktree",
+        "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
@@ -137,19 +181,57 @@
           "name": "Worktrees",
           "icon": "resources/worktree-icon.png",
           "contextualTitle": "Git Worktrees"
+        },
+        {
+          "id": "gitHealthView",
+          "name": "Health Monitor",
+          "icon": "$(pulse)",
+          "contextualTitle": "Worktree Health"
+        },
+        {
+          "id": "gitTimelineView",
+          "name": "Timeline",
+          "icon": "$(history)",
+          "contextualTitle": "Worktree Timeline"
+        },
+        {
+          "id": "gitGraphView",
+          "name": "Dependencies",
+          "icon": "$(graph)",
+          "contextualTitle": "Dependency Graph"
         }
       ]
     },
     "menus": {
       "view/title": [
         {
+          "command": "gitWorktree.quickActions",
+          "when": "view == gitWorktreeView",
+          "group": "navigation@0"
+        },
+        {
           "command": "gitWorktree.refresh",
           "when": "view == gitWorktreeView",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
           "command": "gitWorktree.add",
           "when": "view == gitWorktreeView"
+        },
+        {
+          "command": "gitWorktree.refreshHealth",
+          "when": "view == gitHealthView",
+          "group": "navigation"
+        },
+        {
+          "command": "gitWorktree.refreshTimeline",
+          "when": "view == gitTimelineView",
+          "group": "navigation"
+        },
+        {
+          "command": "gitWorktree.refreshGraph",
+          "when": "view == gitGraphView",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
@@ -253,6 +335,40 @@
           "type": "boolean",
           "default": true,
           "description": "Show the current worktree in the status bar"
+        },
+        "gitWorktree.hooks": {
+          "type": "object",
+          "default": {},
+          "description": "Lifecycle hooks to run on worktree events",
+          "properties": {
+            "onCreate": {
+              "type": "string",
+              "description": "Command to run after creating a worktree. Use {path}, {branch}, {worktree} as variables."
+            },
+            "onDelete": {
+              "type": "string",
+              "description": "Command to run before deleting a worktree"
+            },
+            "onSwitch": {
+              "type": "string",
+              "description": "Command to run after switching to a worktree"
+            }
+          }
+        },
+        "gitWorktree.health.checkInterval": {
+          "type": "number",
+          "default": 900000,
+          "description": "Health check interval in milliseconds (default: 15 minutes)"
+        },
+        "gitWorktree.sync.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable settings sync across worktrees"
+        },
+        "gitWorktree.sync.autoSync": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically sync settings when they change"
         }
       }
     }

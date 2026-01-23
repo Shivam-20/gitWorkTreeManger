@@ -3,6 +3,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { WorktreeProvider } from './worktreeProvider';
 import { GitWorktreeManager } from './gitWorktreeManager';
+import { TemplateManager } from './templates/templateManager';
+import { HooksManager } from './lifecycle/hooksManager';
+import { HealthProvider } from './views/healthProvider';
+import { TimelineProvider } from './views/timelineProvider';
+import { GraphProvider } from './views/graphProvider';
+import { QuickActions } from './quickActions';
+import { SettingsSync } from './sync/settingsSync';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Git Worktree Manager extension is now active');
@@ -10,18 +17,42 @@ export function activate(context: vscode.ExtensionContext) {
     const gitManager = new GitWorktreeManager();
     const worktreeProvider = new WorktreeProvider(gitManager);
 
+    // Initialize new modules
+    const templateManager = new TemplateManager(context);
+    const hooksManager = new HooksManager();
+    const healthProvider = new HealthProvider(gitManager);
+    const timelineProvider = new TimelineProvider(context, gitManager);
+    const graphProvider = new GraphProvider(gitManager);
+    const quickActions = new QuickActions(templateManager, gitManager);
+    const settingsSync = new SettingsSync();
+
     // Status Bar Item
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.command = 'gitWorktree.list';
     context.subscriptions.push(statusBarItem);
 
-    // Register tree view
+    // Register all tree views
     const treeView = vscode.window.createTreeView('gitWorktreeView', {
         treeDataProvider: worktreeProvider,
         showCollapseAll: true
     });
 
-    context.subscriptions.push(treeView);
+    const healthView = vscode.window.createTreeView('gitHealthView', {
+        treeDataProvider: healthProvider,
+        showCollapseAll: true
+    });
+
+    const timelineView = vscode.window.createTreeView('gitTimelineView', {
+        treeDataProvider: timelineProvider,
+        showCollapseAll: true
+    });
+
+    const graphView = vscode.window.createTreeView('gitGraphView', {
+        treeDataProvider: graphProvider,
+        showCollapseAll: true
+    });
+
+    context.subscriptions.push(treeView, healthView, timelineView, graphView);
 
     // Helper function to validate git repository
     async function validateGitRepository(): Promise<boolean> {
@@ -327,8 +358,19 @@ export function activate(context: vscode.ExtensionContext) {
                     await gitManager.addWorktree(location, branchName, createNew);
                 });
 
+                // Execute onCreate hook
+                await hooksManager.onWorktreeCreate(location, branchName);
+
+                // Record timeline event
+                await timelineProvider.recordEvent({
+                    type: 'created',
+                    worktree: { path: location, branch: branchName },
+                    timestamp: Date.now()
+                });
+
                 vscode.window.showInformationMessage(`Worktree created successfully: ${branchName}`);
                 worktreeProvider.refresh();
+                healthProvider.refresh();
 
                 // Ask if user wants to open new worktree
                 const action = await vscode.window.showInformationMessage(
@@ -825,6 +867,163 @@ export function activate(context: vscode.ExtensionContext) {
             }
         })
     );
+
+    // Quick Actions
+    context.subscriptions.push(
+        vscode.commands.registerCommand('gitWorktree.quickActions', async () => {
+            await quickActions.showQuickActionsPanel();
+        })
+    );
+
+    // Batch Operations
+    context.subscriptions.push(
+        vscode.commands.registerCommand('gitWorktree.pullAll', async () => {
+            if (!(await validateGitRepository())) return;
+
+            const worktrees = await gitManager.listWorktrees();
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Pulling all worktrees...',
+                cancellable: false
+            }, async (progress) => {
+                let completed = 0;
+                for (const wt of worktrees) {
+                    progress.report({ message: `Pulling ${wt.branch || wt.path}...`, increment: (100 / worktrees.length) });
+                    try {
+                        await gitManager.pullInWorktree(wt.path);
+                        completed++;
+                    } catch (error) {
+                        console.error(`Pull failed for ${wt.path}:`, error);
+                    }
+                }
+                vscode.window.showInformationMessage(`Pulled ${completed}/${worktrees.length} worktrees`);
+            });
+            worktreeProvider.refresh();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('gitWorktree.pushAllDirty', async () => {
+            if (!(await validateGitRepository())) return;
+
+            const worktrees = await gitManager.listWorktrees();
+            const dirtyWorktrees: typeof worktrees = [];
+
+            for (const wt of worktrees) {
+                const status = await gitManager.getWorktreeStatus(wt.path);
+                if (status === 'dirty') {
+                    dirtyWorktrees.push(wt);
+                }
+            }
+
+            if (dirtyWorktrees.length === 0) {
+                vscode.window.showInformationMessage('No dirty worktrees found');
+                return;
+            }
+
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Pushing dirty worktrees...',
+                cancellable: false
+            }, async (progress) => {
+                let completed = 0;
+                for (const wt of dirtyWorktrees) {
+                    progress.report({ message: `Pushing ${wt.branch || wt.path}...` });
+                    try {
+                        await gitManager.pushInWorktree(wt.path);
+                        completed++;
+                    } catch (error) {
+                        console.error(`Push failed for ${wt.path}:`, error);
+                    }
+                }
+                vscode.window.showInformationMessage(`Pushed ${completed}/${dirtyWorktrees.length} dirty worktrees`);
+            });
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('gitWorktree.installDepsAll', async () => {
+            if (!(await validateGitRepository())) return;
+
+            const worktrees = await gitManager.listWorktrees();
+
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Installing dependencies in all worktrees...',
+                cancellable: false
+            }, async (progress) => {
+                let completed = 0;
+                for (const wt of worktrees) {
+                    progress.report({ message: `Installing in ${wt.branch || wt.path}...` });
+                    try {
+                        await hooksManager.executeHook('npm install', { path: wt.path, branch: wt.branch || '', worktree: wt.path });
+                        completed++;
+                    } catch (error) {
+                        console.error(`Install failed for ${wt.path}:`, error);
+                    }
+                }
+                vscode.window.showInformationMessage(`Installed dependencies in ${completed}/${worktrees.length} worktrees`);
+            });
+        })
+    );
+
+    // Settings Sync
+    context.subscriptions.push(
+        vscode.commands.registerCommand('gitWorktree.syncSettings', async () => {
+            if (!(await validateGitRepository())) return;
+
+            const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+            if (!workspaceRoot) return;
+
+            const worktrees = await gitManager.listWorktrees();
+            const targetPaths = worktrees.filter(wt => wt.path !== workspaceRoot).map(wt => wt.path);
+
+            if (targetPaths.length === 0) {
+                vscode.window.showInformationMessage('No other worktrees to sync to');
+                return;
+            }
+
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Syncing settings...',
+                cancellable: false
+            }, async (progress) => {
+                const result = await settingsSync.syncSettings(workspaceRoot, targetPaths, progress);
+                vscode.window.showInformationMessage(
+                    `Settings synced to ${result.synced} files (${result.failed} failed)`
+                );
+            });
+        })
+    );
+
+    // Health Monitor
+    context.subscriptions.push(
+        vscode.commands.registerCommand('gitWorktree.refreshHealth', () => {
+            healthProvider.refresh();
+        })
+    );
+
+    // Timeline
+    context.subscriptions.push(
+        vscode.commands.registerCommand('gitWorktree.refreshTimeline', () => {
+            timelineProvider.refresh();
+        })
+    );
+
+    // Dependency Graph
+    context.subscriptions.push(
+        vscode.commands.registerCommand('gitWorktree.refreshGraph', () => {
+            graphProvider.refresh();
+        })
+    );
+
+    // Set up health monitoring interval
+    const healthConfig = vscode.workspace.getConfiguration('gitWorktree');
+    const healthCheckInterval = healthConfig.get<number>('health.checkInterval', 900000);
+    const healthTimer = setInterval(() => {
+        healthProvider.refresh();
+    }, healthCheckInterval);
+    context.subscriptions.push({ dispose: () => clearInterval(healthTimer) });
 
     // Pass initial data to provider
     worktreeProvider.setNotes(context.workspaceState.get<Record<string, string>>('worktreeNotes', {}));
